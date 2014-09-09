@@ -1,0 +1,18 @@
+How to deploy Molecular List Logic on an apache server on Linux
+
+Requirements:
+1. Python 2.7
+2. Apache configured to recognize php files
+3. Python libraries: cgi, oechem (for smi and sdf files)
+
+Setup:
+1. create a folder and copy all files to a webserver-accessible location, e.g.
+       cd /var/www/molecularListLogic
+
+
+#################################################################################################################
+Known bugg:
+The app can hang if long/big txt lists are supplied (>30k), probably due to memory issues
+One potential option to solve is to write to file on the server side (which is currently done for .smi/.sdf files)
+See README for more details
+

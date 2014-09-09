@@ -1,0 +1,423 @@
+<html>
+<head>
+<title>Molecular List Logic</title>
+<link rel="stylesheet" href="css/bootstrap.css" type="text/css" media="screen" title="master" charset="utf-8">
+</head>
+<body id="page">
+
+    <header>
+      <h1>Molecular List Logic</h1>
+    </header>
+<font size = 1>A web-app to perform logic operations on lists. For example molecular file lists (.smi/.sdf) or ID's (.txt) </font size =2>
+<font size = 3>
+<p><a href="help.html">Help</a><p><p>
+
+<table align="center">
+<tr>
+  <td>
+    <input type="text" class="label font" id="file1" name="file1" value="" readonly>
+    <input type="text" class="label font" id="size1" name="size1" value="Size: 0" readonly>
+    <p>
+    <textarea id="data1" name="data1" rows="5" oninput="updateSize1()"></textarea>
+    <p>
+    <input type="button"  class="button font" name="remove1" id="remove1" value="Clear" onclick="removeFile('file1','data1');updateSize1();">
+  </td>
+  <td>
+  <article>
+  <div id="box1"><br><br><br>Drop files here!<br>or<br>Copy/type<br>in the boxes!
+  </div> 
+  <p id="upload" class="hidden"><label>Drag & drop not supported, but you can still upload via this input field:<br><input type="file"></label></p>
+  <p id="filereader">File API & FileReader API not supported</p>
+ 
+  </article>
+  </td>
+  <td>
+    <input type="text" class="label font" id="file2" name="file2" value="" readonly>
+    <input type="text" class="label font" id="size2" name="size2" value="Size :0" readonly>
+    <p>
+    <textarea id="data2" name="data2" rows="5" oninput="updateSize2()"></textarea>
+    <p>
+    <input type="button" class="button font" name="remove2" id="remove2" value="Clear" onclick="removeFile('file2','data2');updateSize2();">
+  </td>
+</tr>
+<tr>
+  <td>
+  </td>
+  <td>
+    <input type="button"  class="button font" name="swap" id="swap" value="<< Swap >>" onclick="swap()">
+  </td>
+  <td>
+  </td>
+</tr>
+<tr>
+  <td>
+  </td>
+  <td>
+    <input type="radio" class="radio" name="operation" id="operation_AND" value="AND" checked><b>AND <img src="images/and.png" alt="AND"></b> 
+  </td>
+  <td><div id="sortBox"><input type="checkbox" class="checkbox" name="sort" id="sort"><b>Sort results</b></div>
+  </td>
+</tr>
+<tr>
+  <td>
+  </td>
+  <td>
+    <input type="radio" class="radio" name="operation" id="operation_OR" value="OR"><b>&nbsp OR <img src="images/or.png" alt="OR"></b>
+  </td>
+  <td><form id="get_uniform_smiles" action="getUniformSmiles.py" method="post" target="smiles_frame">
+<input type="hidden" id="dataA" name="dataA" value="">
+<input type="hidden" id="dataB" name="dataB" value="">
+<input type="hidden" id="smiles_operator" name="smiles_operator" value="">
+<input type="hidden" id="extension" name="extension" value="">
+<div id="sdfBox"><input type="checkbox" class="checkbox" name="sdf_output" id="sdf_output"><b>Output as SDF (file only)</b></div>
+</form>
+  </td>
+</tr>
+<tr>
+  <td>
+  </td>
+  <td>
+    <input type="radio" class="radio" name="operation" id="operation_NOT" value="NOT"><b>NOT <img src="images/not.png" alt="NOT"></b><br>
+  </td>
+  <td><div id="trimBox"><input type="checkbox" class="checkbox" name="trim" id="trim"><b>Trim identifiers (remove trailing chars after - and _)</b></div> 
+  </td>
+</tr>
+<tr>
+<td>
+</td>
+<td>
+<input type="button"  class="button font" name="getResults" id="getResults" value="Submit" onclick="results()">
+<p>
+<input type="text" class="label font" id="result_label" name="result_label" value="" style="visibility:hidden" readonly>
+<a href="" download="results.txt" id="download"><img src="images/save.png" alt="Save!" id="save" style="visibility:hidden"></a>
+<p>
+<!--This form post the data from the reult text area to a php-script which writes the data to a file -->
+<form id="result_form" action="write_file.php" method="post" target="target_frame">
+<input type="hidden" id="file_name" name="file_name" value="1.txt">
+<input type="hidden" id="date" name="date" value="">
+<input type="hidden" id="operator" name="operator" value="">
+<textarea id="results" name="results" rows="5" style="visibility:hidden"></textarea>
+</form>
+</td>
+<td>
+</td>
+</tr>
+</table>
+
+<!--The invisible iframe allows us to run the php-script without leaving the page. -->
+<iframe name="target_frame" class="invisible"></iframe>
+<iframe name="smiles_frame" class="invisible"></iframe>
+
+<script>
+//this is where we recive data from our python script
+//it's made possible by keeping the script open in an invisible iframe
+var eventMethod = window.addEventListener ? "addEventListener" : "attachEvent";
+var eventer = window[eventMethod];
+var messageEvent = eventMethod == "attachEvent" ? "onmessage" : "message";
+eventer(messageEvent,function(e){
+  var data = e.data;
+  data = data.replace(/\|/g," "); //data formating since we can't send spaces or new lines
+  data = data.replace(/!/g,"\n");
+  data = data.split("*");
+  displayResults(data,"\n");
+
+},false);
+
+//checks if the browser supports file reader and dragging
+var box1 = document.getElementById('box1'),
+    tests = {
+      filereader: typeof FileReader != 'undefined',
+      dnd: 'draggable' in document.createElement('span'),
+    }, 
+    support = {
+      filereader: document.getElementById('filereader'),
+    },
+    fileupload = document.getElementById('upload');
+
+//Shows error messages if needed functionalities are missing
+
+if (tests["filereader"] === false) {
+  support["filereader"].className = 'fail';
+} else {
+  support["filereader"].className = 'hidden';
+}
+
+
+//updates the file name over the content boxes
+function fileLoaded(file) {
+  if(file1.value==""){ 
+    file1.value = file.name;
+  }else{
+    file2.value = file.name;
+  }
+}
+
+//reads the file data and places it in content A if it's empty
+//otherwise the data will go in content B, overwriting possible content
+function readfiles(files) {
+    for (var i = 0; i < files.length; i++) {
+	fileLoaded(files[i]);
+	var reader = new FileReader();
+	var data;
+	reader.onload = function(e) {
+                        data = reader.result;
+			if(data1.value==""){
+			   data1.value=data;
+			   updateSize1();
+			   box1.innerHTML="<br><br><br> Content A inserted!";
+			}else{
+			   data2.value=data; 
+			   updateSize2();
+			   box1.innerHTML="<br><br><br> Content B inserted!";
+			}
+	}
+	reader.readAsText(files[i]);	
+
+	
+	
+    }
+
+
+}
+
+//Updates the size of the Content boxes
+function updateSize1(){
+    var len =  getArray(file1.value, data1.value).length;
+    size1.value = " Size: " + len;
+}
+
+function updateSize2(){
+    var len =  getArray(file2.value, data2.value).length;
+    size2.value = " Size: " + len;
+}
+
+//the drag and drop event
+if (tests.dnd) { //if drag and drop is supported
+  box1.ondragover = function () { this.className = 'hover'; return false; };
+  box1.ondragend = function () { this.className = ''; return false; };
+  box1.ondrop = function (e) {
+    this.className = '';
+    e.preventDefault(); 
+    readfiles(e.dataTransfer.files);
+  }
+  page.ondragover = function (e) {e.preventDefault();} //prevents files from being opened if they miss the box
+  page.ondrop = function (e) {e.preventDefault();}
+} else { //else use normal file upload
+  fileupload.className = 'hidden';
+  fileupload.querySelector('input').onchange = function () {
+    readfiles(this.files);
+  }
+}
+
+//the clear button removes file name and content
+function removeFile(file,data) {
+  document.getElementById(file).value="";
+  document.getElementById(data).value=""; 
+  box1.innerHTML="<br><br><br> Content Removed!";
+};
+
+//checks possible extensions and returns an array. For example sdf split on $$$$ and smiles on \n
+//empty values are also removed
+function getArray(file,data){
+  var new_data;
+  var extension = "";
+  if (file!=""){     
+     var extension = file.split(".")[1].substring(0,3);  
+  }
+
+  if (extension=="sdf"){
+        new_data = data.split(/\${4}\n/);	
+  }else{
+        new_data = data.split("\n");
+        if (trim.checked){
+          new_data = handleIds(new_data);
+        }
+
+  }
+  
+  for (i = 0; i < new_data.length; i++) { 
+    if(new_data[i].trim()==""){ 
+       new_data.splice(i,1)
+    }
+  }
+  return new_data;
+};
+
+//switches the values of the content boxes
+function swap(){
+  var tmpData = data1.value;
+  var tmpFile = file1.value;
+  var tmpSize = size1.value;
+
+  data1.value = data2.value;
+  file1.value = file2.value;
+  size1.value = size2.value;
+
+  data2.value = tmpData;
+  file2.value = tmpFile;
+  size2.value = tmpSize;
+};
+
+//supplies the get_uniform_smiles form with values and submits it
+//this runs the python script that handles OEChem functions
+function handle_smi_sdf(file,data){
+  var extension = "";
+  if (file!=""){     
+     var ext = file.split(".")[1].substring(0,3);  
+  }
+  if (ext=="smi" | ext=="sdf"){
+    document.getElementById("results").value="Processing SMILES!"
+    if(document.getElementById("sdf_output").checked==true){
+      document.getElementById("download").download="results.sdf"
+    }else{
+      document.getElementById("download").download="results.smi"
+    }
+    smiles_operator.value = operator.value;
+    dataA.value=data;
+    document.getElementById("extension").value = ext;
+    document.getElementById("result_label").style.visibility="visible";
+    document.getElementById("results").style.visibility="visible";
+    get_uniform_smiles.submit();
+    return true;
+  }
+  document.getElementById("download").download="results.txt"
+  return false;
+};
+
+//trims id:s
+function handleIds(dataArray){
+  var hyphen;
+  var underScore;
+  for (var i=0; i< dataArray.length; i++){
+    hyphen = dataArray[i].indexOf("-");
+    underScore = dataArray[i].indexOf("_");
+    if(hyphen !=-1){  
+      dataArray[i] = dataArray[i].substring(0,hyphen);
+    } else if (underScore !=-1){
+      dataArray[i] = dataArray[i].substring(0,underScore);
+    }
+  }	 
+  return dataArray;
+}
+
+//finds what boolean operation that need to be called and runs it
+function results(){
+  date.value = new Date();
+  if (data1.value=="" && data2.value==""){
+			box1.innerHTML="<br><br><br> Must supply an input file!<br>Drop them in this box!";
+  } else if (data2.value==""){
+                        operator.value = "UNI";
+                        if(!handle_smi_sdf(file1.value,data1.value)){
+                          dataArray = getArray(file1.value, data1.value);
+                          var separator = getSeparator(file1.value);
+			  and(dataArray,dataArray,separator);
+                        }
+  } else if (data1.value==""){
+			operator.value = "UNI";
+                        if(!handle_smi_sdf(file1.value,data1.value)){
+			  dataArray = getArray(file2.value, data2.value);
+                          var separator = getSeparator(file2.value);
+			  and(dataArray,dataArray,separator);
+		        }
+  }else{
+                        dataB.value=data2.value;
+                        var separator = getSeparator(file1.value);
+			if (operation_AND.checked){
+			  operator.value = "AND";
+                          if(!handle_smi_sdf(file1.value,data1.value)){
+                            data1Array = getArray(file1.value, data1.value);
+			    data2Array = getArray(file2.value, data2.value);
+                            and(data1Array,data2Array,separator);  		 
+                          }
+                          
+			}else if(operation_OR.checked){
+			  operator.value = "OR";
+                          if(!handle_smi_sdf(file1.value,data1.value)){
+	                    data1Array = getArray(file1.value, data1.value);
+			    data2Array = getArray(file2.value, data2.value);
+			    or(data1Array,data2Array,separator);
+                          }
+			}else if(operation_NOT.checked){
+			  operator.value = "NOT";
+                          if(!handle_smi_sdf(file1.value,data1.value)){
+	                    data1Array = getArray(file1.value, data1.value);
+			    data2Array = getArray(file2.value, data2.value);
+			    not(data1Array,data2Array,separator);
+                          }
+		
+			}
+  }
+ 
+};
+
+// the boolean operations for text
+function and(data1Array,data2Array,separator){
+  var joinedArray = [];
+  for (var i=0; i< data1Array.length; i++){
+    if(data2Array.indexOf(data1Array[i])!=-1 && joinedArray.indexOf(data1Array[i])==-1){
+      joinedArray.push(data1Array[i]);
+    }
+  }
+  displayResults(joinedArray,separator);
+};
+
+function or(data1Array,data2Array,separator){
+  var joinedArray = data1Array.concat(data2Array);
+  var uniqueData = [];
+  uniqueData = joinedArray.filter(function(elem, pos) {
+    return joinedArray.indexOf(elem) == pos;
+})
+  displayResults(uniqueData,separator);
+};
+
+function not(data1Array,data2Array,separator){
+  var joinedArray = [];
+  for (var i=0; i< data1Array.length; i++){
+    if(data2Array.indexOf(data1Array[i])==-1 && joinedArray.indexOf(data1Array[i])==-1){
+      joinedArray.push(data1Array[i]);
+    }
+  }
+  displayResults(joinedArray,separator);
+};
+
+//returns the correct separator for different file types
+function getSeparator(file){
+  if(file!="" && file.split(" ")[0].split(".")[1]=="sdf"){
+    return "$$$$\n";
+  }else{
+    return "\n";
+  }
+};
+
+//loads data into the result view and runs write_file.php
+//the php script then writes the results file
+function displayResults(resultsArray,separator){
+  result_label.value = "Results(Size " + resultsArray.length + "):";
+  if(document.getElementById("sort").checked){
+    resultsArray = resultsArray.sort();
+  }
+  var results = document.getElementById("results");
+  results.value = ""; 
+  for (var i=0; i< resultsArray.length; i++){  
+    results.value+= resultsArray[i]+separator;
+  }
+  if (results.value!=""){
+    box1.innerHTML="<br><br><br>Done!";
+    document.getElementById("result_label").style.visibility="visible";
+    document.getElementById("results").style.visibility="visible";
+    document.getElementById("save").style.visibility="visible";
+    var file_name = (new Date).getMilliseconds().toString() + "out.txt";
+    document.getElementById("file_name").value=file_name;
+    download.href="uploads/"+file_name;
+    result_form.submit();
+  }else{
+    box1.innerHTML="<br><br><br>Empty result!!";
+  }
+
+};
+</script>
+<font size = 1>
+
+<p>Original web app developed by <a href="mailto:mange.norrby@gmail.com"> Magnus Norrby</a> and <a href="mailto:jonas.bostrom@astrazeneca.com"> Jonas Boström</a> at AstraZeneca iMED CVMD Sweden</center>
+
+</html>
