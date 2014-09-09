@@ -2,7 +2,7 @@ Molecular List Logic is web-app to perform logic operations on various molecular
 by Magnus Norrby and Jonas Boström at AstraZeneca CVMD Sweden, 2014-08-31
 ###########################################################################
 
- [[ScreenShotMolecularListLogic.GIF]]
+![Screenshot](https://github.com/OpenEye-Contrib/Molecular-List-Logic/blob/master/ScreenShotMolecularListLogic.GIF) 
 
 
 Componentents:
@@ -31,7 +31,8 @@ The data is then returned via the javascriptfunktion "parent.postMessage()"
 This is done since the python script is a hidden iframe in index.html.
 Please remember to change (#!/opt/az/psf/python/2.7/bin/python) to the correct python path  
 
-# The app can hang if long/big txt lists are supplied (>30k), probably due to memory issues
+**bold** The app can hang if long/big txt lists are supplied (>30k), probably due to memory issues
+
 The function used for that is shown below (from file "getUniformSmiles.py")
 def write_sdf(smiles_list):
     sdfs = []
